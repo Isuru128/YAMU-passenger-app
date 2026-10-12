@@ -1,4 +1,5 @@
 export * from './auth/LoginScreen';
+export * from './auth/RegisterScreen';
 export * from './auth/OtpVerificationScreen';
 export * from './home/HomeScreen';
 export * from './home/DestinationSearchScreen';
@@ -9,4 +10,6 @@ export * from './activity/RideHistoryScreen';
 export * from './activity/RideDetailsScreen';
 export * from './wallet/WalletScreen';
 export * from './profile/ProfileScreen';
+export * from './profile/EditProfileScreen';
 export * from './profile/EmergencyContactsScreen';
+
