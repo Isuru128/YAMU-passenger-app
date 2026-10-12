@@ -3,6 +3,7 @@ import { LocationPoint } from '../types/location';
 
 export type AuthStackParamList = {
   Login: undefined;
+  Register: undefined;
   OtpVerification: { phoneNumber: string };
 };
 
@@ -22,4 +23,6 @@ export type RootStackParamList = {
   RideRating: { rideId: string };
   RideDetails: { rideId: string };
   EmergencyContacts: undefined;
+  EditProfile: undefined;
 };
+
