@@ -1,4 +1,13 @@
 export const ENDPOINTS = {
+  ACCOUNTS: {
+    REGISTER: '/accounts/register',
+    LOGIN: '/accounts/login',
+    GET_BY_ID: (id: string) => `/accounts/${id}`,
+    UPDATE_PROFILE: (id: string) => `/accounts/${id}`,
+    UPDATE_STATUS: (id: string) => `/accounts/${id}/status`,
+    SWAGGER_UI: '/swagger-ui.html',
+    API_DOCS: '/v3/api-docs',
+  },
   AUTH: {
     REQUEST_OTP: '/auth/otp/request',
     VERIFY_OTP: '/auth/otp/verify',
@@ -26,3 +35,4 @@ export const ENDPOINTS = {
     ADD_CARD: '/wallet/cards',
   },
 };
+

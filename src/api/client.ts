@@ -6,18 +6,35 @@ interface RequestOptions extends RequestInit {
 
 class ApiClient {
   private baseUrl: string;
+  private defaultToken: string | null = null;
 
   constructor(baseUrl: string = ENV.API_BASE_URL) {
     this.baseUrl = baseUrl;
   }
 
+  setToken(token: string | null) {
+    this.defaultToken = token;
+  }
+
+  getToken(): string | null {
+    return this.defaultToken;
+  }
+
+  getBaseUrl(): string {
+    return this.baseUrl;
+  }
+
+  setBaseUrl(baseUrl: string) {
+    this.baseUrl = baseUrl;
+  }
+
   private async request<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
-    const { token, headers, ...rest } = options;
+    const { token = this.defaultToken, headers, ...rest } = options;
 
     const requestHeaders: Record<string, string> = {
       'Content-Type': 'application/json',
       Accept: 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(token ? { Authorization: token.startsWith('Bearer ') ? token : `Bearer ${token}` } : {}),
       ...(headers as Record<string, string>),
     };
 
@@ -28,10 +45,20 @@ class ApiClient {
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.message || `Request failed with status ${response.status}`);
+      const errorMessage =
+        errorData.message ||
+        errorData.error ||
+        (Array.isArray(errorData.errors) ? errorData.errors.join(', ') : null) ||
+        `Request failed with status ${response.status}`;
+      throw new Error(errorMessage);
     }
 
-    return response.json();
+    // Handle empty body responses (e.g. 204 or void)
+    const contentType = response.headers.get('content-type');
+    if (contentType && contentType.includes('application/json')) {
+      return response.json();
+    }
+    return (await response.text()) as unknown as T;
   }
 
   get<T>(endpoint: string, options?: RequestOptions): Promise<T> {
@@ -54,9 +81,18 @@ class ApiClient {
     });
   }
 
+  patch<T>(endpoint: string, body?: any, options?: RequestOptions): Promise<T> {
+    return this.request<T>(endpoint, {
+      ...options,
+      method: 'PATCH',
+      body: body ? JSON.stringify(body) : undefined,
+    });
+  }
+
   delete<T>(endpoint: string, options?: RequestOptions): Promise<T> {
     return this.request<T>(endpoint, { ...options, method: 'DELETE' });
   }
 }
 
 export const apiClient = new ApiClient();
+

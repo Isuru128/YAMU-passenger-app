@@ -41,8 +41,30 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   }, []);
 
   useEffect(() => {
-    refreshLocation();
-  }, [refreshLocation]);
+    let active = true;
+    const init = async () => {
+      try {
+        const coords = await locationService.getCurrentLocation();
+        if (!active) return;
+        setCurrentLocation(coords);
+
+        const addressName = await locationService.reverseGeocode(coords);
+        if (!active) return;
+        setPickupLocation({
+          name: addressName && addressName !== 'Selected Location' ? addressName : 'Current Location',
+          address: addressName || 'Current GPS Location',
+          coordinates: coords,
+        });
+      } catch (e) {
+        console.warn('Failed to refresh GPS location:', e);
+      }
+    };
+    init();
+    return () => {
+      active = false;
+    };
+  }, []);
+
 
   const resetLocations = () => {
     setDestinationLocation(null);
