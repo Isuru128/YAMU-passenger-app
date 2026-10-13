@@ -4,20 +4,22 @@ interface RequestOptions extends RequestInit {
   token?: string | null;
 }
 
-class ApiClient {
+// Shared authentication token across all microservice clients
+let sharedAuthToken: string | null = null;
+
+export class ApiClient {
   private baseUrl: string;
-  private defaultToken: string | null = null;
 
   constructor(baseUrl: string = ENV.API_BASE_URL) {
     this.baseUrl = baseUrl;
   }
 
   setToken(token: string | null) {
-    this.defaultToken = token;
+    sharedAuthToken = token;
   }
 
   getToken(): string | null {
-    return this.defaultToken;
+    return sharedAuthToken;
   }
 
   getBaseUrl(): string {
@@ -29,7 +31,7 @@ class ApiClient {
   }
 
   private async request<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
-    const { token = this.defaultToken, headers, ...rest } = options;
+    const { token = sharedAuthToken, headers, ...rest } = options;
 
     const requestHeaders: Record<string, string> = {
       'Content-Type': 'application/json',
@@ -38,7 +40,9 @@ class ApiClient {
       ...(headers as Record<string, string>),
     };
 
-    const response = await fetch(`${this.baseUrl}${endpoint}`, {
+    const targetUrl = `${this.baseUrl}${endpoint}`;
+
+    const response = await fetch(targetUrl, {
       ...rest,
       headers: requestHeaders,
     });
@@ -49,11 +53,10 @@ class ApiClient {
         errorData.message ||
         errorData.error ||
         (Array.isArray(errorData.errors) ? errorData.errors.join(', ') : null) ||
-        `Request failed with status ${response.status}`;
+        `Request to ${this.baseUrl} failed with status ${response.status}`;
       throw new Error(errorMessage);
     }
 
-    // Handle empty body responses (e.g. 204 or void)
     const contentType = response.headers.get('content-type');
     if (contentType && contentType.includes('application/json')) {
       return response.json();
@@ -94,5 +97,11 @@ class ApiClient {
   }
 }
 
-export const apiClient = new ApiClient();
+// Microservice-specific API clients
+export const accountApiClient = new ApiClient(ENV.ACCOUNT_SERVICE_URL);
+export const driverApiClient = new ApiClient(ENV.DRIVER_SERVICE_URL);
+export const rideApiClient = new ApiClient(ENV.RIDE_SERVICE_URL);
+export const paymentApiClient = new ApiClient(ENV.PAYMENT_SERVICE_URL);
 
+// Default client for backwards compatibility
+export const apiClient = accountApiClient;
