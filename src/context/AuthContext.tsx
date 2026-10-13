@@ -6,7 +6,6 @@ import {
   LoginRequest,
   RegisterRequest,
   UpdateProfileRequest,
-  UpdateStatusRequest,
 } from '../types/account';
 import { storageService } from '../services/storageService';
 import { accountService } from '../services/accountService';
@@ -21,7 +20,6 @@ export interface AuthContextType {
   register: (request: RegisterRequest) => Promise<AuthResponse>;
   refreshProfile: () => Promise<AccountResponse | null>;
   updateProfile: (request: UpdateProfileRequest) => Promise<AccountResponse>;
-  updateAccountStatus: (id: string, request: UpdateStatusRequest) => Promise<AccountResponse>;
   loginWithPhone: (phone: string) => Promise<boolean>;
   verifyOtp: (phone: string, otp: string) => Promise<boolean>;
   logout: () => Promise<void>;
@@ -29,23 +27,6 @@ export interface AuthContextType {
 }
 
 export const AuthContext = createContext<AuthContextType>({} as AuthContextType);
-
-const DEMO_USER: UserProfile = {
-  id: 'usr_101',
-  fullName: 'Kasun Perera',
-  firstName: 'Kasun',
-  lastName: 'Perera',
-  phoneNumber: '+94771234567',
-  email: 'kasun.perera@example.com',
-  role: 'PASSENGER',
-  status: 'ACTIVE',
-  profile: {
-    address: 'Colombo 03, Sri Lanka',
-    emergencyContact: '+94711112222',
-  },
-  rating: 4.9,
-  walletBalance: 2450,
-};
 
 const mapAccountToUserProfile = (
   acc: AccountResponse,
@@ -60,17 +41,17 @@ const mapAccountToUserProfile = (
   role: acc.role,
   status: acc.status,
   profile: acc.profile,
-  rating: existing?.rating ?? 4.9,
-  walletBalance: existing?.walletBalance ?? 2450,
+  rating: existing?.rating ?? 5.0,
+  walletBalance: existing?.walletBalance ?? 0,
   createdAt: acc.createdAt,
   updatedAt: acc.updatedAt,
 });
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(true); // default true for initial preview
-  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
   const [token, setToken] = useState<string | null>(null);
-  const [user, setUser] = useState<UserProfile | null>(DEMO_USER);
+  const [user, setUser] = useState<UserProfile | null>(null);
 
   // Restore stored session and attempt fresh GET /accounts/{id}
   useEffect(() => {
@@ -87,14 +68,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (savedAccountId) {
             try {
               const freshAccount = await accountService.getAccountById(savedAccountId, savedToken);
+              if (freshAccount.role && freshAccount.role !== 'PASSENGER') {
+                await storageService.removeItem('authToken');
+                await storageService.removeItem('accountId');
+                setToken(null);
+                apiClient.setToken(null);
+                setIsAuthenticated(false);
+                setUser(null);
+                return;
+              }
               setUser((prev) => mapAccountToUserProfile(freshAccount, prev));
             } catch {
-              // Network error or backend offline; keep stored or fallback user
+              // Network error or backend offline; keep stored user
             }
           }
         }
       } catch {
         // storage reading error ignored
+      } finally {
+        setIsLoading(false);
       }
     };
 
@@ -108,6 +100,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsLoading(true);
     try {
       const response = await accountService.login(request);
+
+      if (response.account?.role && response.account.role !== 'PASSENGER') {
+        throw new Error('This app is for passengers only. Driver accounts cannot log in here.');
+      }
+
       setToken(response.token);
       apiClient.setToken(response.token);
 
@@ -131,7 +128,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const register = async (request: RegisterRequest): Promise<AuthResponse> => {
     setIsLoading(true);
     try {
-      const response = await accountService.register(request);
+      const response = await accountService.register({
+        ...request,
+        role: 'PASSENGER',
+      });
       setToken(response.token);
       apiClient.setToken(response.token);
 
@@ -187,25 +187,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  /**
-   * PATCH /accounts/{id}/status
-   */
-  const updateAccountStatus = async (
-    id: string,
-    request: UpdateStatusRequest
-  ): Promise<AccountResponse> => {
-    setIsLoading(true);
-    try {
-      const updatedAccount = await accountService.updateStatus(id, request, token || undefined);
-      if (user?.id === id) {
-        setUser((prev) => mapAccountToUserProfile(updatedAccount, prev));
-      }
-      return updatedAccount;
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   const loginWithPhone = async (_phone: string): Promise<boolean> => {
     setIsLoading(true);
     await new Promise((resolve) => setTimeout(resolve, 800));
@@ -213,12 +194,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return true;
   };
 
-  const verifyOtp = async (_phone: string, otp: string): Promise<boolean> => {
+  const verifyOtp = async (phone: string, otp: string): Promise<boolean> => {
     setIsLoading(true);
     await new Promise((resolve) => setTimeout(resolve, 800));
     if (otp.length === 4) {
       await storageService.setItem('authToken', 'demo_jwt_token_yamu');
-      setUser(DEMO_USER);
+      const otpUser: UserProfile = {
+        id: `usr_${Date.now()}`,
+        fullName: 'Passenger',
+        phoneNumber: phone,
+        email: '',
+        role: 'PASSENGER',
+        status: 'ACTIVE',
+        rating: 5.0,
+        walletBalance: 0,
+      };
+      setUser(otpUser);
       setIsAuthenticated(true);
       setIsLoading(false);
       return true;
@@ -253,7 +244,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         register,
         refreshProfile,
         updateProfile,
-        updateAccountStatus,
         loginWithPhone,
         verifyOtp,
         logout,
