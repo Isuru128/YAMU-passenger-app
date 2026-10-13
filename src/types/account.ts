@@ -1,4 +1,4 @@
-export type Role = 'PASSENGER' | 'DRIVER' | 'ADMIN';
+export type Role = 'PASSENGER';
 
 export type AccountStatus = 'ACTIVE' | 'SUSPENDED' | 'DEACTIVATED';
 
@@ -51,7 +51,3 @@ export interface UpdateProfileRequest {
   profile?: ProfileDto;
 }
 
-export interface UpdateStatusRequest {
-  status: AccountStatus;
-  reason?: string;
-}

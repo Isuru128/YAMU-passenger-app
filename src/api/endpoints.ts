@@ -4,9 +4,6 @@ export const ENDPOINTS = {
     LOGIN: '/accounts/login',
     GET_BY_ID: (id: string) => `/accounts/${id}`,
     UPDATE_PROFILE: (id: string) => `/accounts/${id}`,
-    UPDATE_STATUS: (id: string) => `/accounts/${id}/status`,
-    SWAGGER_UI: '/swagger-ui.html',
-    API_DOCS: '/v3/api-docs',
   },
   AUTH: {
     REQUEST_OTP: '/auth/otp/request',

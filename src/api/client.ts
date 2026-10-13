@@ -97,11 +97,11 @@ export class ApiClient {
   }
 }
 
-// Microservice-specific API clients
+// Microservice-specific API clients (Passenger App)
 export const accountApiClient = new ApiClient(ENV.ACCOUNT_SERVICE_URL);
-export const driverApiClient = new ApiClient(ENV.DRIVER_SERVICE_URL);
 export const rideApiClient = new ApiClient(ENV.RIDE_SERVICE_URL);
 export const paymentApiClient = new ApiClient(ENV.PAYMENT_SERVICE_URL);
 
 // Default client for backwards compatibility
 export const apiClient = accountApiClient;
+

@@ -84,13 +84,6 @@ export const EditProfileScreen: React.FC<Props> = ({ navigation }) => {
         style={styles.keyboardView}
       >
         <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-          <View style={styles.infoBanner}>
-            <Ionicons name="information-circle" size={20} color={Colors.primary} />
-            <Text style={styles.infoText}>
-              Updates are synced to Account Service endpoint: PUT /accounts/{user?.id || '{id}'}
-            </Text>
-          </View>
-
           <View style={styles.section}>
             <Text style={styles.sectionHeader}>Personal Information</Text>
 
@@ -98,7 +91,7 @@ export const EditProfileScreen: React.FC<Props> = ({ navigation }) => {
               <View style={styles.halfInput}>
                 <Input
                   label="First Name"
-                  placeholder="Kasun"
+                  placeholder="First name"
                   value={firstName}
                   onChangeText={(val) => {
                     setFirstName(val);
@@ -110,7 +103,7 @@ export const EditProfileScreen: React.FC<Props> = ({ navigation }) => {
               <View style={styles.halfInput}>
                 <Input
                   label="Last Name"
-                  placeholder="Perera"
+                  placeholder="Last name"
                   value={lastName}
                   onChangeText={(val) => {
                     setLastName(val);
@@ -131,7 +124,7 @@ export const EditProfileScreen: React.FC<Props> = ({ navigation }) => {
 
             <Input
               label="Phone Number"
-              placeholder="077 123 4567"
+              placeholder="e.g. 077 123 4567"
               value={phoneNumber}
               onChangeText={(val) => {
                 setPhoneNumber(val);
@@ -148,7 +141,7 @@ export const EditProfileScreen: React.FC<Props> = ({ navigation }) => {
 
             <Input
               label="Residential Address"
-              placeholder="123 Galle Road, Colombo 03"
+              placeholder="Enter address"
               value={address}
               onChangeText={setAddress}
               leftIcon={<Ionicons name="home-outline" size={20} color={Colors.textMuted} />}
@@ -156,7 +149,7 @@ export const EditProfileScreen: React.FC<Props> = ({ navigation }) => {
 
             <Input
               label="Emergency Contact Phone"
-              placeholder="+94 71 111 2222"
+              placeholder="e.g. 071 123 4567"
               value={emergencyContact}
               onChangeText={setEmergencyContact}
               keyboardType="phone-pad"
@@ -182,20 +175,6 @@ const styles = StyleSheet.create({
   },
   container: {
     padding: 16,
-  },
-  infoBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#EEF2FF',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 20,
-    gap: 8,
-  },
-  infoText: {
-    ...Typography.caption,
-    color: Colors.primary,
-    flex: 1,
   },
   section: {
     marginBottom: 20,

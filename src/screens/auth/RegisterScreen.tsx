@@ -19,7 +19,6 @@ import { Colors } from '../../constants/colors';
 import { Typography } from '../../constants/typography';
 import { isValidEmail, isValidSriLankanPhone } from '../../utils/validators';
 import { useAuth } from '../../hooks/useAuth';
-import { Role } from '../../types/account';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'Register'>;
 
@@ -29,9 +28,8 @@ export const RegisterScreen: React.FC<Props> = ({ navigation }) => {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
-  const [phoneNumber, setPhoneNumber] = useState('0771234567');
+  const [phoneNumber, setPhoneNumber] = useState('');
   const [password, setPassword] = useState('');
-  const [role, setRole] = useState<Role>('PASSENGER');
   const [showPassword, setShowPassword] = useState(false);
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -77,7 +75,7 @@ export const RegisterScreen: React.FC<Props> = ({ navigation }) => {
         email,
         password,
         phoneNumber,
-        role,
+        role: 'PASSENGER',
       });
       // Once registered, user state in AuthContext updates and RootNavigator switches to MainTabs
     } catch (err: any) {
@@ -111,7 +109,7 @@ export const RegisterScreen: React.FC<Props> = ({ navigation }) => {
               <View style={styles.halfInput}>
                 <Input
                   label="First Name"
-                  placeholder="Kasun"
+                  placeholder="First name"
                   value={firstName}
                   onChangeText={(val) => {
                     setFirstName(val);
@@ -123,7 +121,7 @@ export const RegisterScreen: React.FC<Props> = ({ navigation }) => {
               <View style={styles.halfInput}>
                 <Input
                   label="Last Name"
-                  placeholder="Perera"
+                  placeholder="Last name"
                   value={lastName}
                   onChangeText={(val) => {
                     setLastName(val);
@@ -136,7 +134,7 @@ export const RegisterScreen: React.FC<Props> = ({ navigation }) => {
 
             <Input
               label="Email Address"
-              placeholder="kasun@example.com"
+              placeholder="name@example.com"
               value={email}
               onChangeText={(val) => {
                 setEmail(val);
@@ -182,42 +180,6 @@ export const RegisterScreen: React.FC<Props> = ({ navigation }) => {
               }
               onRightIconPress={() => setShowPassword((prev) => !prev)}
             />
-
-            {/* Account Role Selector */}
-            <Text style={styles.label}>Account Role</Text>
-            <View style={styles.roleContainer}>
-              <TouchableOpacity
-                style={[styles.roleOption, role === 'PASSENGER' && styles.roleOptionSelected]}
-                onPress={() => setRole('PASSENGER')}
-              >
-                <Ionicons
-                  name="person"
-                  size={18}
-                  color={role === 'PASSENGER' ? Colors.primary : Colors.textMuted}
-                />
-                <Text
-                  style={[styles.roleText, role === 'PASSENGER' && styles.roleTextSelected]}
-                >
-                  Passenger
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.roleOption, role === 'DRIVER' && styles.roleOptionSelected]}
-                onPress={() => setRole('DRIVER')}
-              >
-                <Ionicons
-                  name="car"
-                  size={18}
-                  color={role === 'DRIVER' ? Colors.primary : Colors.textMuted}
-                />
-                <Text
-                  style={[styles.roleText, role === 'DRIVER' && styles.roleTextSelected]}
-                >
-                  Driver
-                </Text>
-              </TouchableOpacity>
-            </View>
 
             <Button
               title="Create Account"
@@ -289,42 +251,6 @@ const styles = StyleSheet.create({
   },
   halfInput: {
     flex: 1,
-  },
-  label: {
-    ...Typography.caption,
-    color: Colors.textSecondary,
-    fontWeight: '600',
-    marginBottom: 8,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  roleContainer: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 20,
-  },
-  roleOption: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 12,
-    borderWidth: 1.5,
-    borderColor: Colors.border,
-    borderRadius: 12,
-    backgroundColor: Colors.surface,
-  },
-  roleOptionSelected: {
-    borderColor: Colors.primary,
-    backgroundColor: '#EEF2FF',
-  },
-  roleText: {
-    ...Typography.bodyBold,
-    color: Colors.textSecondary,
-  },
-  roleTextSelected: {
-    color: Colors.primary,
   },
   submitButton: {
     marginTop: 10,
