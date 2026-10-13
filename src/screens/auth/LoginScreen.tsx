@@ -28,12 +28,12 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
   const [authMode, setAuthMode] = useState<'email' | 'phone'>('email');
 
   // Email login state
-  const [email, setEmail] = useState('kasun.perera@example.com');
-  const [password, setPassword] = useState('password123');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
   // Phone OTP login state
-  const [phone, setPhone] = useState('0771234567');
+  const [phone, setPhone] = useState('');
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [generalError, setGeneralError] = useState<string | null>(null);
@@ -139,13 +139,11 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
           {authMode === 'email' ? (
             <View style={styles.formSection}>
               <Text style={styles.title}>Sign in with Email</Text>
-              <Text style={styles.subtitle}>
-                Connect to YAMU Account Service (/accounts/login)
-              </Text>
+              <Text style={styles.subtitle}>Sign in to continue</Text>
 
               <Input
                 label="Email Address"
-                placeholder="rider@example.com"
+                placeholder="name@example.com"
                 value={email}
                 onChangeText={(val) => {
                   setEmail(val);
