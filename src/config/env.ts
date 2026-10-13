@@ -4,7 +4,6 @@ export const ENV = {
 
   // Direct Microservice URLs
   ACCOUNT_SERVICE_URL: process.env.EXPO_PUBLIC_ACCOUNT_SERVICE_URL || process.env.EXPO_PUBLIC_API_URL || '',
-  DRIVER_SERVICE_URL: process.env.EXPO_PUBLIC_DRIVER_SERVICE_URL || process.env.EXPO_PUBLIC_API_URL || '',
   RIDE_SERVICE_URL: process.env.EXPO_PUBLIC_RIDE_SERVICE_URL || process.env.EXPO_PUBLIC_API_URL || '',
   PAYMENT_SERVICE_URL: process.env.EXPO_PUBLIC_PAYMENT_SERVICE_URL || process.env.EXPO_PUBLIC_API_URL || '',
 
