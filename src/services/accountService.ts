@@ -6,7 +6,6 @@ import {
   AuthResponse,
   AccountResponse,
   UpdateProfileRequest,
-  UpdateStatusRequest,
 } from '../types/account';
 
 /**
@@ -56,7 +55,7 @@ export class AccountService {
   /**
    * Fetch account details by account ID
    * GET /accounts/{id}
-   * Access: Authenticated (Account owner or ROLE_ADMIN)
+   * Access: Authenticated (Account owner)
    */
   async getAccountById(id: string, token?: string): Promise<AccountResponse> {
     return apiClient.get<AccountResponse>(ENDPOINTS.ACCOUNTS.GET_BY_ID(id), {
@@ -67,7 +66,7 @@ export class AccountService {
   /**
    * Update user profile details
    * PUT /accounts/{id}
-   * Access: Authenticated (Account owner or ROLE_ADMIN)
+   * Access: Authenticated (Account owner)
    */
   async updateProfile(
     id: string,
@@ -78,32 +77,7 @@ export class AccountService {
       token,
     });
   }
-
-  /**
-   * Change account status (ACTIVE, SUSPENDED, DEACTIVATED)
-   * PATCH /accounts/{id}/status
-   * Access: Admin only (ROLE_ADMIN)
-   */
-  async updateStatus(
-    id: string,
-    request: UpdateStatusRequest,
-    token?: string
-  ): Promise<AccountResponse> {
-    return apiClient.patch<AccountResponse>(ENDPOINTS.ACCOUNTS.UPDATE_STATUS(id), request, {
-      token,
-    });
-  }
-
-  /**
-   * Get exposed API documentation endpoints
-   */
-  getDocumentationUrls() {
-    const baseUrl = apiClient.getBaseUrl();
-    return {
-      swaggerUi: `${baseUrl}${ENDPOINTS.ACCOUNTS.SWAGGER_UI}`,
-      openApiDocs: `${baseUrl}${ENDPOINTS.ACCOUNTS.API_DOCS}`,
-    };
-  }
 }
 
 export const accountService = new AccountService();
+
