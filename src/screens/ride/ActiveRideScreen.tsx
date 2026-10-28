@@ -17,7 +17,7 @@ import { RideStatus } from '../../constants/rideConstants';
 type Props = NativeStackScreenProps<RootStackParamList, 'ActiveRide'>;
 
 export const ActiveRideScreen: React.FC<Props> = ({ navigation }) => {
-  const { activeRide, cancelRide, refreshActiveRide } = useRide();
+  const { activeRide, cancelRide } = useRide();
   const [routeInfo, setRouteInfo] = useState<RouteResult | null>(null);
 
   useEffect(() => {

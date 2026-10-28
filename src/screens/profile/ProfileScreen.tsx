@@ -23,7 +23,7 @@ import { AccountStatus } from '../../types/account';
 type Props = NativeStackScreenProps<RootStackParamList>;
 
 export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
-  const { user, refreshProfile, logout, isLoading } = useAuth();
+  const { user, refreshProfile, logout } = useAuth();
 
   const [refreshing, setRefreshing] = useState(false);
 
