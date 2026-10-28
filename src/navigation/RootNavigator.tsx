@@ -10,6 +10,7 @@ import { ActiveRideScreen } from '../screens/ride/ActiveRideScreen';
 import { RideRatingScreen } from '../screens/ride/RideRatingScreen';
 import { RideDetailsScreen } from '../screens/activity/RideDetailsScreen';
 import { EmergencyContactsScreen } from '../screens/profile/EmergencyContactsScreen';
+import { EditProfileScreen } from '../screens/profile/EditProfileScreen';
 import { useAuth } from '../hooks/useAuth';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -48,9 +49,11 @@ export const RootNavigator: React.FC = () => {
             />
             <Stack.Screen name="RideDetails" component={RideDetailsScreen} />
             <Stack.Screen name="EmergencyContacts" component={EmergencyContactsScreen} />
+            <Stack.Screen name="EditProfile" component={EditProfileScreen} />
           </>
         )}
       </Stack.Navigator>
     </NavigationContainer>
   );
 };
+

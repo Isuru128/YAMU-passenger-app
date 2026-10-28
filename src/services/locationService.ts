@@ -23,9 +23,6 @@ class LocationService {
         };
       }
 
-      // Check last known position first for instant response
-      const lastKnown = await Location.getLastKnownPositionAsync();
-
       const position = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.High,
       });
@@ -44,7 +41,7 @@ class LocationService {
             longitude: lastKnown.coords.longitude,
           };
         }
-      } catch (e) {
+      } catch {
         // ignore
       }
 

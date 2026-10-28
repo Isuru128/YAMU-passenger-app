@@ -1,3 +1,6 @@
 export * from './location';
-export * from './user';
+export type { UserProfile, EmergencyContact } from './user';
 export * from './ride';
+export * from './account';
+export * from './payment';
+export * from './driver';

@@ -1,4 +1,4 @@
-import React, { createContext, useState, useEffect, useRef } from 'react';
+import React, { createContext, useState, useEffect, useCallback, useRef } from 'react';
 import {
   RideRecord,
   DriverInfo,
@@ -129,17 +129,13 @@ export const RideProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [availableDrivers, setAvailableDrivers] = useState<DriverResponse[]>([]);
   const [isLoadingRide, setIsLoadingRide] = useState<boolean>(false);
 
-  const activeRideRef = useRef<RideRecord | null>(null);
-  activeRideRef.current = activeRide;
-
-  const paymentMethodRef = useRef<PaymentMethod>(selectedPaymentMethod);
-  paymentMethodRef.current = selectedPaymentMethod;
+  const pollingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   /**
    * Fetch Passenger's Ride History from Ride Management Service
    * GET /api/v1/rides/passenger/{passengerId}
    */
-  const refreshRideHistory = async () => {
+  const refreshRideHistory = useCallback(async () => {
     if (!user?.id) return;
     try {
       const rides = await rideService.getRidesByPassenger(user.id);
@@ -148,74 +144,65 @@ export const RideProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch {
       // Backend might be offline or starting up
     }
-  };
+  }, [user?.id]);
 
   useEffect(() => {
-    let isCancelled = false;
     if (user?.id) {
-      rideService.getRidesByPassenger(user.id)
-        .then((rides) => {
-          if (!isCancelled) {
-            const mapped = rides.map((r) => mapRideResponseToRecord(r, DEFAULT_MOCK_DRIVER));
-            setRideHistory(mapped);
-          }
-        })
-        .catch(() => {});
+      refreshRideHistory();
     }
-    return () => {
-      isCancelled = true;
-    };
-  }, [user]);
+  }, [user?.id, refreshRideHistory]);
 
   /**
    * Query Available Drivers from Driver & Vehicle Service
    * GET /api/v1/drivers/available
    */
-  const fetchAvailableDrivers = async (
-    serviceArea?: string,
-    vehicleType?: VehicleType
-  ): Promise<DriverResponse[]> => {
-    try {
-      const drivers = await driverService.getAvailableDrivers(
-        serviceArea || 'Colombo',
-        vehicleType || selectedVehicleType
-      );
-      setAvailableDrivers(drivers);
-      return drivers;
-    } catch {
-      return [];
-    }
-  };
+  const fetchAvailableDrivers = useCallback(
+    async (serviceArea?: string, vehicleType?: VehicleType): Promise<DriverResponse[]> => {
+      try {
+        const drivers = await driverService.getAvailableDrivers(
+          serviceArea || 'Colombo',
+          vehicleType || selectedVehicleType
+        );
+        setAvailableDrivers(drivers);
+        return drivers;
+      } catch {
+        return [];
+      }
+    },
+    [selectedVehicleType]
+  );
 
   /**
    * Estimate Fare from Fare & Payment Service
    * POST /api/v1/fares/estimate
    */
-  const estimateFare = async (
-    distanceKm: number,
-    durationMinutes: number,
-    vehicleType?: VehicleType
-  ): Promise<FareEstimateResponse> => {
-    return paymentService.estimateFare({
-      distanceKm,
-      durationMinutes,
-      vehicleType: vehicleType || selectedVehicleType,
-      surgeMultiplier: 1.0,
-    });
-  };
+  const estimateFare = useCallback(
+    async (
+      distanceKm: number,
+      durationMinutes: number,
+      vehicleType?: VehicleType
+    ): Promise<FareEstimateResponse> => {
+      return paymentService.estimateFare({
+        distanceKm,
+        durationMinutes,
+        vehicleType: vehicleType || selectedVehicleType,
+        surgeMultiplier: 1.0,
+      });
+    },
+    [selectedVehicleType]
+  );
 
   /**
    * Refresh Active Ride Status from Ride Management Service
    * GET /api/v1/rides/{id}
    */
-  const refreshActiveRide = async (): Promise<RideResponse | null> => {
-    const current = activeRideRef.current;
-    if (!current?.id) return null;
+  const refreshActiveRide = useCallback(async (): Promise<RideResponse | null> => {
+    if (!activeRide?.id) return null;
     try {
-      const raw = await rideService.getRideById(current.id);
+      const raw = await rideService.getRideById(activeRide.id);
       setActiveRideRaw(raw);
 
-      let driverInfo = current.driver;
+      let driverInfo = activeRide.driver;
       if (raw.driverId && (!driverInfo || driverInfo.id !== raw.driverId)) {
         try {
           const driverRes = await driverService.getDriverById(raw.driverId);
@@ -228,32 +215,39 @@ export const RideProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const updatedRecord = mapRideResponseToRecord(
         raw,
         driverInfo || DEFAULT_MOCK_DRIVER,
-        paymentMethodRef.current
+        selectedPaymentMethod
       );
       setActiveRide(updatedRecord);
       return raw;
     } catch {
       return null;
     }
-  };
+  }, [activeRide?.id, activeRide?.driver, selectedPaymentMethod]);
 
   // Periodic polling for active ride status transitions (ASSIGNED, ACCEPTED, IN_PROGRESS, COMPLETED)
   useEffect(() => {
-    const rideId = activeRide?.id;
-    const status = activeRide?.status;
-
-    if (!rideId || status === RideStatus.COMPLETED || status === RideStatus.CANCELLED) {
-      return;
+    if (
+      activeRide &&
+      activeRide.status !== RideStatus.COMPLETED &&
+      activeRide.status !== RideStatus.CANCELLED
+    ) {
+      pollingTimerRef.current = setInterval(() => {
+        refreshActiveRide();
+      }, 4000);
+    } else {
+      if (pollingTimerRef.current) {
+        clearInterval(pollingTimerRef.current);
+        pollingTimerRef.current = null;
+      }
     }
 
-    const timer = setInterval(() => {
-      refreshActiveRide();
-    }, 4000);
-
     return () => {
-      clearInterval(timer);
+      if (pollingTimerRef.current) {
+        clearInterval(pollingTimerRef.current);
+        pollingTimerRef.current = null;
+      }
     };
-  }, [activeRide?.id, activeRide?.status]);
+  }, [activeRide, refreshActiveRide]);
 
   /**
    * Request / Create a Ride in Ride Management Service
@@ -327,12 +321,11 @@ export const RideProvider: React.FC<{ children: React.ReactNode }> = ({ children
    * PATCH /api/v1/rides/{id}/cancel
    */
   const cancelRide = async (reason: string = 'Cancelled by passenger') => {
-    const current = activeRideRef.current;
-    if (!current) return;
+    if (!activeRide) return;
     setIsLoadingRide(true);
     try {
       try {
-        await rideService.cancelRide(current.id, {
+        await rideService.cancelRide(activeRide.id, {
           cancellationReason: reason,
         });
       } catch {
@@ -340,7 +333,7 @@ export const RideProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       const cancelled: RideRecord = {
-        ...current,
+        ...activeRide,
         status: RideStatus.CANCELLED,
       };
       setRideHistory((prev) => [cancelled, ...prev]);
@@ -359,30 +352,29 @@ export const RideProvider: React.FC<{ children: React.ReactNode }> = ({ children
     rating: number,
     feedback?: string
   ): Promise<PaymentResponse | null> => {
-    const current = activeRideRef.current;
-    if (!current) return null;
+    if (!activeRide) return null;
     setIsLoadingRide(true);
     try {
       let paymentRes: PaymentResponse | null = null;
       try {
         paymentRes = await paymentService.processPayment({
-          rideId: current.id,
+          rideId: activeRide.id,
           passengerId: user?.id,
-          driverId: current.driver?.id || 'drv_auto',
-          amount: current.fare > 0 ? current.fare : 250,
-          paymentMethod: paymentMethodRef.current,
+          driverId: activeRide.driver?.id || 'drv_auto',
+          amount: activeRide.fare > 0 ? activeRide.fare : 250,
+          paymentMethod: selectedPaymentMethod,
         });
       } catch {
         // local settlement fallback
       }
 
       const completed: RideRecord = {
-        ...current,
+        ...activeRide,
         status: RideStatus.COMPLETED,
         completedAt: new Date().toISOString(),
         userRating: rating,
         userFeedback: feedback,
-        paymentId: paymentRes?.id || current.paymentId,
+        paymentId: paymentRes?.id || activeRide.paymentId,
       };
 
       setRideHistory((prev) => [completed, ...prev]);

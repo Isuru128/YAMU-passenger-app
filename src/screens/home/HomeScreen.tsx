@@ -25,8 +25,24 @@ type Props = CompositeScreenProps<
 
 export const HomeScreen: React.FC<Props> = ({ navigation }) => {
   const { user } = useAuth();
-  const { activeRide } = useRide();
+  const { activeRide, availableDrivers, fetchAvailableDrivers } = useRide();
   const { pickupLocation, refreshLocation } = useLocation();
+
+  React.useEffect(() => {
+    fetchAvailableDrivers('Colombo');
+  }, [fetchAvailableDrivers]);
+
+  const driverPins = availableDrivers
+    .filter((d) => d.currentLocation)
+    .map((d) => ({
+      id: d.id,
+      type: (d.vehicle?.vehicleType?.toLowerCase() || 'car') as any,
+      coordinates: {
+        latitude: d.currentLocation!.latitude,
+        longitude: d.currentLocation!.longitude,
+      },
+      rotation: 45,
+    }));
 
   return (
     <SafeScreen>
@@ -52,6 +68,7 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
           <WhiteThemedMap
             pickupCoordinates={pickupLocation?.coordinates}
             pickupLabel={pickupLocation?.name || 'Pick up here'}
+            nearbyVehicles={driverPins.length > 0 ? driverPins : undefined}
             onRecenter={refreshLocation}
           />
 
