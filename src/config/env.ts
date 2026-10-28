@@ -3,9 +3,10 @@ export const ENV = {
   API_BASE_URL: process.env.EXPO_PUBLIC_API_URL || process.env.EXPO_PUBLIC_ACCOUNT_SERVICE_URL || '',
 
   // Direct Microservice URLs
-  ACCOUNT_SERVICE_URL: process.env.EXPO_PUBLIC_ACCOUNT_SERVICE_URL || process.env.EXPO_PUBLIC_API_URL || '',
-  RIDE_SERVICE_URL: process.env.EXPO_PUBLIC_RIDE_SERVICE_URL || process.env.EXPO_PUBLIC_API_URL || '',
-  PAYMENT_SERVICE_URL: process.env.EXPO_PUBLIC_PAYMENT_SERVICE_URL || process.env.EXPO_PUBLIC_API_URL || '',
+  ACCOUNT_SERVICE_URL: process.env.EXPO_PUBLIC_ACCOUNT_SERVICE_URL || process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8080',
+  DRIVER_SERVICE_URL: process.env.EXPO_PUBLIC_DRIVER_SERVICE_URL || 'http://localhost:8081',
+  RIDE_SERVICE_URL: process.env.EXPO_PUBLIC_RIDE_SERVICE_URL || process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8082',
+  PAYMENT_SERVICE_URL: process.env.EXPO_PUBLIC_PAYMENT_SERVICE_URL || process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8083',
 
 
   SOCKET_URL: process.env.EXPO_PUBLIC_SOCKET_URL || '',

@@ -185,6 +185,18 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
                 loading={isLoading}
                 style={styles.button}
               />
+
+              <TouchableOpacity
+                style={styles.demoFillBtn}
+                onPress={() => {
+                  setEmail('nimal.passenger@yamu.lk');
+                  setPassword('Pass@12345');
+                  setErrors({});
+                }}
+              >
+                <Ionicons name="flash-outline" size={16} color={Colors.primary} />
+                <Text style={styles.demoFillText}>Use Sample Passenger (Nimal)</Text>
+              </TouchableOpacity>
             </View>
           ) : (
             <View style={styles.formSection}>
@@ -341,5 +353,22 @@ const styles = StyleSheet.create({
     color: Colors.textMuted,
     textAlign: 'center',
     marginBottom: 10,
+  },
+  demoFillBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: '#99F6E4',
+    backgroundColor: '#F0FDFA',
+    borderRadius: 10,
+  },
+  demoFillText: {
+    ...Typography.caption,
+    fontWeight: '700',
+    color: Colors.primary,
   },
 });

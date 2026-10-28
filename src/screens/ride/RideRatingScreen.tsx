@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { RootStackParamList } from '../../navigation/types';
@@ -9,20 +9,27 @@ import { Input } from '../../components/common/Input';
 import { Colors } from '../../constants/colors';
 import { Typography } from '../../constants/typography';
 import { useRide } from '../../hooks/useRide';
+import { formatCurrency } from '../../utils/formatters';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'RideRating'>;
 
 export const RideRatingScreen: React.FC<Props> = ({ navigation }) => {
-  const { completeRide } = useRide();
+  const { completeRide, activeRide } = useRide();
   const [rating, setRating] = useState(5);
   const [feedback, setFeedback] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async () => {
-    await completeRide(rating, feedback);
-    navigation.reset({
-      index: 0,
-      routes: [{ name: 'MainTabs' }],
-    });
+    setIsSubmitting(true);
+    try {
+      await completeRide(rating, feedback);
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'MainTabs' }],
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -33,7 +40,17 @@ export const RideRatingScreen: React.FC<Props> = ({ navigation }) => {
             <Ionicons name="checkmark-circle" size={56} color={Colors.primary} />
           </View>
           <Text style={styles.title}>You have arrived!</Text>
-          <Text style={styles.subtitle}>How was your ride with Sunil?</Text>
+          <Text style={styles.subtitle}>
+            {activeRide?.driver?.name
+              ? `How was your ride with ${activeRide.driver.name}?`
+              : 'How was your ride?'}
+          </Text>
+          {activeRide && (
+            <View style={styles.fareTag}>
+              <Text style={styles.fareTagLabel}>Fare Settled:</Text>
+              <Text style={styles.fareTagValue}>{formatCurrency(activeRide.fare)}</Text>
+            </View>
+          )}
         </View>
 
         {/* 5-Star Selector */}
@@ -63,7 +80,8 @@ export const RideRatingScreen: React.FC<Props> = ({ navigation }) => {
         />
 
         <Button
-          title="Submit Rating"
+          title={isSubmitting ? 'Finalizing Payment...' : 'Submit Rating & Receipt'}
+          loading={isSubmitting}
           onPress={handleSubmit}
           style={styles.submitBtn}
         />
@@ -81,10 +99,10 @@ const styles = StyleSheet.create({
   },
   header: {
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: 20,
   },
   iconCircle: {
-    marginBottom: 16,
+    marginBottom: 12,
   },
   title: {
     ...Typography.h1,
@@ -97,10 +115,30 @@ const styles = StyleSheet.create({
     marginTop: 6,
     textAlign: 'center',
   },
+  fareTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#F0FDFA',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: '#99F6E4',
+  },
+  fareTagLabel: {
+    ...Typography.caption,
+    color: Colors.textSecondary,
+  },
+  fareTagValue: {
+    ...Typography.bodyBold,
+    color: Colors.primary,
+  },
   starsRow: {
     flexDirection: 'row',
     gap: 8,
-    marginVertical: 24,
+    marginVertical: 20,
   },
   starBtn: {
     padding: 4,

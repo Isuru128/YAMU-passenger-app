@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { RootStackParamList } from '../../navigation/types';
@@ -34,11 +34,15 @@ export const RideBookingScreen: React.FC<Props> = ({ route, navigation }) => {
     selectedPaymentMethod,
     setSelectedPaymentMethod,
     requestRide,
+    estimateFare,
+    availableDrivers,
+    fetchAvailableDrivers,
   } = useRide();
 
   const [isBooking, setIsBooking] = useState(false);
   const [routeInfo, setRouteInfo] = useState<RouteResult | null>(null);
   const [loadingRoute, setLoadingRoute] = useState(true);
+  const [dynamicFares, setDynamicFares] = useState<Record<string, number>>({});
 
   // Fetch real driving route from OSRM demo server
   useEffect(() => {
@@ -62,19 +66,73 @@ export const RideBookingScreen: React.FC<Props> = ({ route, navigation }) => {
     };
   }, [pickupLocation, destination]);
 
+  // Fetch nearby available drivers from driver-and-vehicle-service
+  useEffect(() => {
+    fetchAvailableDrivers('Colombo', selectedVehicleType);
+  }, [selectedVehicleType, fetchAvailableDrivers]);
+
   const distanceKm = routeInfo ? routeInfo.distanceKm : 4.8;
   const durationMinutes = routeInfo ? routeInfo.durationMinutes : 12;
 
+  // Fetch dynamic fare estimates from payment-service for all vehicle types
+  useEffect(() => {
+    let isMounted = true;
+    const loadFares = async () => {
+      const fares: Record<string, number> = {};
+      for (const opt of VEHICLE_OPTIONS) {
+        try {
+          const est = await estimateFare(distanceKm, durationMinutes, opt.id);
+          if (est?.estimatedFare) {
+            fares[opt.id] = Math.round(Number(est.estimatedFare));
+          }
+        } catch {
+          // fallback to client-side rule
+          fares[opt.id] = Math.round(opt.baseFare + distanceKm * opt.perKmRate);
+        }
+      }
+      if (isMounted && Object.keys(fares).length > 0) {
+        setDynamicFares(fares);
+      }
+    };
+
+    loadFares();
+    return () => {
+      isMounted = false;
+    };
+  }, [distanceKm, durationMinutes, estimateFare]);
+
   const selectedVehicle =
     VEHICLE_OPTIONS.find((v) => v.id === selectedVehicleType) || VEHICLE_OPTIONS[0];
-  const calculatedFare = Math.round(selectedVehicle.baseFare + distanceKm * selectedVehicle.perKmRate);
+  const calculatedFare =
+    dynamicFares[selectedVehicleType] ||
+    Math.round(selectedVehicle.baseFare + distanceKm * selectedVehicle.perKmRate);
+
+  const driverPins = availableDrivers
+    .filter((d) => d.currentLocation)
+    .map((d) => ({
+      id: d.id,
+      type: (d.vehicle?.vehicleType?.toLowerCase() || 'car') as any,
+      coordinates: {
+        latitude: d.currentLocation!.latitude,
+        longitude: d.currentLocation!.longitude,
+      },
+      rotation: 45,
+    }));
 
   const handleConfirmRide = async () => {
     if (!pickupLocation) return;
     setIsBooking(true);
-    await requestRide(pickupLocation, destination, calculatedFare);
-    setIsBooking(false);
-    navigation.replace('ActiveRide');
+    try {
+      await requestRide(pickupLocation, destination, calculatedFare, distanceKm, durationMinutes);
+      navigation.replace('ActiveRide');
+    } catch (err: any) {
+      Alert.alert(
+        'Booking Failed',
+        err?.message || 'Could not place ride request with server. Please try again.'
+      );
+    } finally {
+      setIsBooking(false);
+    }
   };
 
   return (
@@ -89,6 +147,7 @@ export const RideBookingScreen: React.FC<Props> = ({ route, navigation }) => {
             destinationCoordinates={destination.coordinates}
             destinationLabel={destination.name}
             routeCoordinates={routeInfo?.coordinates}
+            nearbyVehicles={driverPins.length > 0 ? driverPins : undefined}
             style={styles.mapPreview}
           />
           <View style={styles.routeStatsRow}>
@@ -129,7 +188,9 @@ export const RideBookingScreen: React.FC<Props> = ({ route, navigation }) => {
         {/* Vehicle Selection List */}
         <Text style={styles.sectionHeader}>Available Vehicles</Text>
         {VEHICLE_OPTIONS.map((item) => {
-          const fare = Math.round(item.baseFare + distanceKm * item.perKmRate);
+          const fare =
+            dynamicFares[item.id] ||
+            Math.round(item.baseFare + distanceKm * item.perKmRate);
           return (
             <VehicleTypeCard
               key={item.id}
