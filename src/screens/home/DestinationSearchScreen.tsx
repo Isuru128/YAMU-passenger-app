@@ -93,7 +93,7 @@ export const DestinationSearchScreen: React.FC<Props> = ({ navigation }) => {
         {/* Results List */}
         <FlatList
           data={results}
-          keyExtractor={(item) => item.id || item.name}
+          keyExtractor={(item, index) => `${item.id || item.name}-${index}`}
           ListHeaderComponent={
             results.length > 0 ? (
               <View style={styles.resultsHeader}>
