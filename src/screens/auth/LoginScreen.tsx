@@ -185,18 +185,6 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
                 loading={isLoading}
                 style={styles.button}
               />
-
-              <TouchableOpacity
-                style={styles.demoFillBtn}
-                onPress={() => {
-                  setEmail('nimal.passenger@yamu.lk');
-                  setPassword('Pass@12345');
-                  setErrors({});
-                }}
-              >
-                <Ionicons name="flash-outline" size={16} color={Colors.primary} />
-                <Text style={styles.demoFillText}>Use Sample Passenger (Nimal)</Text>
-              </TouchableOpacity>
             </View>
           ) : (
             <View style={styles.formSection}>
