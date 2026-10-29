@@ -69,7 +69,7 @@ class LocationService {
         for (const city of geoMatches) {
           if (city.latitude && city.longitude) {
             results.push({
-              id: `geo_${city.postal_code || city.name_en}`,
+              id: `geo_${city.postal_code || 'na'}_${city.name_en}`,
               name: city.name_en,
               address: `${city.name_en}, ${city.district} District (${city.postal_code || ''})`,
               coordinates: {
