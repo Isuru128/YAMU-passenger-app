@@ -1,4 +1,4 @@
-import React, { useRef, useMemo, useEffect } from 'react';
+import React, { useRef, useMemo, useEffect, useCallback } from 'react';
 import {
   View,
   StyleSheet,
@@ -60,40 +60,26 @@ export const WhiteThemedMap: React.FC<WhiteThemedMapProps> = ({
   children,
 }) => {
   const webViewRef = useRef<WebView | null>(null);
+  const initialCoordsRef = useRef<Coordinates>({
+    latitude: pickupCoordinates?.latitude || DEFAULT_COORDS.latitude,
+    longitude: pickupCoordinates?.longitude || DEFAULT_COORDS.longitude,
+  });
 
-  // Generate Leaflet HTML document with OpenStreetMap / CartoDB tiles
+  // Build static HTML once so WebView does not reload on GPS/label updates
   const leafletHtml = useMemo(() => {
-    const centerLat = pickupCoordinates.latitude || DEFAULT_COORDS.latitude;
-    const centerLng = pickupCoordinates.longitude || DEFAULT_COORDS.longitude;
+    const centerLat = initialCoordsRef.current.latitude;
+    const centerLng = initialCoordsRef.current.longitude;
 
-    const routeJson = JSON.stringify(
-      (routeCoordinates || []).map((c) => [c.latitude, c.longitude])
-    );
-
-    const vehiclesJson = JSON.stringify(
-      nearbyVehicles.map((v) => ({
-        id: v.id,
-        type: v.type,
-        lat: v.coordinates.latitude,
-        lng: v.coordinates.longitude,
-        rotation: v.rotation || 0,
-      }))
-    );
-
-    const hasDest = !!destinationCoordinates;
-    const destLat = destinationCoordinates?.latitude || 0;
-    const destLng = destinationCoordinates?.longitude || 0;
-
-    return `
-<!DOCTYPE html>
+    return `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.css" />
+  <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.js"></script>
   <style>
-    html, body, #map {
+    * { box-sizing: border-box; }
+    html, body {
       height: 100%;
       width: 100%;
       margin: 0;
@@ -102,9 +88,19 @@ export const WhiteThemedMap: React.FC<WhiteThemedMapProps> = ({
       overflow: hidden;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     }
+    #map {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      width: 100vw;
+      height: 100vh;
+      background: #f8fafc;
+    }
     .leaflet-control-attribution {
       font-size: 8px !important;
-      background: rgba(255, 255, 255, 0.7) !important;
+      background: rgba(255, 255, 255, 0.75) !important;
     }
     .leaflet-control-zoom {
       display: none !important;
@@ -163,116 +159,153 @@ export const WhiteThemedMap: React.FC<WhiteThemedMapProps> = ({
 <body>
   <div id="map"></div>
   <script>
-    // Initialize map
     const map = L.map('map', {
       zoomControl: false,
       attributionControl: true
     }).setView([${centerLat}, ${centerLng}], 15);
 
-    // Add high-performance, clean OpenStreetMap tiles
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    // Primary high-reliability CartoDB Voyager tiles (no Referer 403 block in WebViews) with OSM fallback
+    const tileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
       maxZoom: 19,
-      attribution: '© OpenStreetMap'
+      subdomains: 'abcd',
+      attribution: '© OpenStreetMap © CARTO'
     }).addTo(map);
 
-    // Pickup Marker
-    const pickupHtml = \`
-      <div class="custom-pin">
-        <div class="callout-pill">${pickupLabel}</div>
-        <div class="pin-circle"><div class="pin-core"></div></div>
-      </div>
-    \`;
-    const pickupIcon = L.divIcon({
-      html: pickupHtml,
-      className: '',
-      iconSize: [120, 50],
-      iconAnchor: [60, 48]
+    let fallbackUsed = false;
+    tileLayer.on('tileerror', function() {
+      if (!fallbackUsed) {
+        fallbackUsed = true;
+        L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          maxZoom: 19,
+          attribution: '© OpenStreetMap'
+        }).addTo(map);
+      }
     });
-    const pickupMarker = L.marker([${centerLat}, ${centerLng}], { icon: pickupIcon }).addTo(map);
 
-    // Destination Marker (if active)
+    let pickupMarker = null;
     let destMarker = null;
-    const hasDest = ${hasDest};
-    if (hasDest) {
-      const destHtml = \`
-        <div class="custom-pin">
-          <div class="callout-pill" style="color: #ef4444; border-color: #ef4444;">${destinationLabel}</div>
-          <div class="pin-circle dest-circle"><div class="pin-core"></div></div>
-        </div>
-      \`;
-      const destIcon = L.divIcon({
-        html: destHtml,
+    let routeLine = null;
+    let vehicleLayerGroup = L.layerGroup().addTo(map);
+
+    function buildPinIcon(label, isDest) {
+      const colorStyle = isDest ? 'color: #ef4444; border-color: #ef4444;' : '';
+      const circleClass = isDest ? 'pin-circle dest-circle' : 'pin-circle';
+      return L.divIcon({
+        html: '<div class="custom-pin"><div class="callout-pill" style="' + colorStyle + '">' + label + '</div><div class="' + circleClass + '"><div class="pin-core"></div></div></div>',
         className: '',
-        iconSize: [120, 50],
-        iconAnchor: [60, 48]
+        iconSize: [140, 50],
+        iconAnchor: [70, 48]
       });
-      destMarker = L.marker([${destLat}, ${destLng}], { icon: destIcon }).addTo(map);
     }
 
-    // Route Polyline (from OSRM)
-    const routeCoords = ${routeJson};
-    if (routeCoords && routeCoords.length > 1) {
-      const polyline = L.polyline(routeCoords, {
-        color: '#0f766e',
-        weight: 5,
-        opacity: 0.9,
-        lineCap: 'round',
-        lineJoin: 'round'
-      }).addTo(map);
+    pickupMarker = L.marker([${centerLat}, ${centerLng}], {
+      icon: buildPinIcon('Pick up here', false)
+    }).addTo(map);
 
-      // Fit map bounds to show complete route
-      map.fitBounds(polyline.getBounds(), { padding: [50, 50] });
-    } else if (hasDest) {
-      const bounds = L.latLngBounds([
-        [${centerLat}, ${centerLng}],
-        [${destLat}, ${destLng}]
-      ]);
-      map.fitBounds(bounds, { padding: [50, 50] });
-    }
+    window.syncMapState = function(state) {
+      if (!state) return;
+      map.invalidateSize();
 
-    // Nearby Vehicle Markers (when not on active route)
-    if (!hasDest) {
-      const vehicles = ${vehiclesJson};
-      const vehicleIcons = {
-        tuk: '🛺',
-        car: '🚗',
-        bike: '🏍️',
-        van: '🚐'
-      };
+      if (state.pickup && state.pickup.lat && state.pickup.lng) {
+        if (pickupMarker) {
+          pickupMarker.setLatLng([state.pickup.lat, state.pickup.lng]);
+          pickupMarker.setIcon(buildPinIcon(state.pickupLabel || 'Pick up here', false));
+        } else {
+          pickupMarker = L.marker([state.pickup.lat, state.pickup.lng], {
+            icon: buildPinIcon(state.pickupLabel || 'Pick up here', false)
+          }).addTo(map);
+        }
+      }
 
-      vehicles.forEach(v => {
-        const iconChar = vehicleIcons[v.type] || '🚗';
-        const vHtml = \`
-          <div class="vehicle-marker" style="transform: rotate(\${v.rotation}deg);">
-            <span style="font-size: 16px;">\${iconChar}</span>
-          </div>
-        \`;
-        const vIcon = L.divIcon({
-          html: vHtml,
-          className: '',
-          iconSize: [32, 32],
-          iconAnchor: [16, 16]
+      if (state.destination && state.destination.lat && state.destination.lng) {
+        if (destMarker) {
+          destMarker.setLatLng([state.destination.lat, state.destination.lng]);
+          destMarker.setIcon(buildPinIcon(state.destinationLabel || 'Drop-off', true));
+        } else {
+          destMarker = L.marker([state.destination.lat, state.destination.lng], {
+            icon: buildPinIcon(state.destinationLabel || 'Drop-off', true)
+          }).addTo(map);
+        }
+      } else if (destMarker) {
+        map.removeLayer(destMarker);
+        destMarker = null;
+      }
+
+      if (routeLine) {
+        map.removeLayer(routeLine);
+        routeLine = null;
+      }
+
+      if (state.route && state.route.length > 1) {
+        routeLine = L.polyline(state.route, {
+          color: '#0f766e',
+          weight: 5,
+          opacity: 0.9,
+          lineCap: 'round',
+          lineJoin: 'round'
+        }).addTo(map);
+        map.fitBounds(routeLine.getBounds(), { padding: [55, 55] });
+      } else if (state.pickup && state.destination) {
+        const bounds = L.latLngBounds([
+          [state.pickup.lat, state.pickup.lng],
+          [state.destination.lat, state.destination.lng]
+        ]);
+        map.fitBounds(bounds, { padding: [55, 55] });
+      }
+
+      vehicleLayerGroup.clearLayers();
+      if (!state.destination && state.vehicles && state.vehicles.length > 0) {
+        const vehicleIcons = { tuk: '🛺', car: '🚗', bike: '🏍️', van: '🚐' };
+        state.vehicles.forEach(function(v) {
+          const iconChar = vehicleIcons[v.type] || '🚗';
+          const vIcon = L.divIcon({
+            html: '<div class="vehicle-marker" style="transform: rotate(' + (v.rotation || 0) + 'deg);"><span style="font-size: 16px;">' + iconChar + '</span></div>',
+            className: '',
+            iconSize: [32, 32],
+            iconAnchor: [16, 16]
+          });
+          L.marker([v.lat, v.lng], { icon: vIcon }).addTo(vehicleLayerGroup);
         });
-        L.marker([v.lat, v.lng], { icon: vIcon }).addTo(map);
-      });
-    }
+      }
+    };
 
-    // Function callable from React Native to smoothly recenter
     window.recenterMap = function(lat, lng) {
+      map.invalidateSize();
       map.flyTo([lat, lng], 16, { animate: true, duration: 0.8 });
     };
 
-    // Function callable from React Native to dynamically update pickup location
-    window.updatePickup = function(lat, lng, label) {
-      if (pickupMarker) {
-        pickupMarker.setLatLng([lat, lng]);
-      }
-      map.flyTo([lat, lng], 15, { animate: true, duration: 1.0 });
-    };
+    setTimeout(function() { map.invalidateSize(); }, 100);
+    setTimeout(function() { map.invalidateSize(); }, 400);
+    window.addEventListener('resize', function() { map.invalidateSize(); });
   </script>
 </body>
-</html>
-    `;
+</html>`;
+  }, []);
+
+  const syncToWebView = useCallback(() => {
+    if (!webViewRef.current) return;
+
+    const payload = {
+      pickup: pickupCoordinates
+        ? { lat: pickupCoordinates.latitude, lng: pickupCoordinates.longitude }
+        : null,
+      pickupLabel,
+      destination: destinationCoordinates
+        ? { lat: destinationCoordinates.latitude, lng: destinationCoordinates.longitude }
+        : null,
+      destinationLabel,
+      route: (routeCoordinates || []).map((c) => [c.latitude, c.longitude]),
+      vehicles: (nearbyVehicles || []).map((v) => ({
+        id: v.id,
+        type: v.type,
+        lat: v.coordinates.latitude,
+        lng: v.coordinates.longitude,
+        rotation: v.rotation || 0,
+      })),
+    };
+
+    const script = `window.syncMapState && window.syncMapState(${JSON.stringify(payload)}); true;`;
+    webViewRef.current.injectJavaScript(script);
   }, [
     pickupCoordinates,
     pickupLabel,
@@ -282,13 +315,9 @@ export const WhiteThemedMap: React.FC<WhiteThemedMapProps> = ({
     nearbyVehicles,
   ]);
 
-  // Sync Leaflet camera whenever GPS coordinates arrive
   useEffect(() => {
-    if (webViewRef.current && pickupCoordinates?.latitude && pickupCoordinates?.longitude) {
-      const script = `window.updatePickup && window.updatePickup(${pickupCoordinates.latitude}, ${pickupCoordinates.longitude}, "${pickupLabel}"); true;`;
-      webViewRef.current.injectJavaScript(script);
-    }
-  }, [pickupCoordinates?.latitude, pickupCoordinates?.longitude, pickupLabel]);
+    syncToWebView();
+  }, [syncToWebView]);
 
   const handleRecenter = () => {
     if (webViewRef.current && pickupCoordinates) {
@@ -298,7 +327,6 @@ export const WhiteThemedMap: React.FC<WhiteThemedMapProps> = ({
     onRecenter?.();
   };
 
-  // Web Browser fallback
   if (Platform.OS === 'web') {
     return (
       <View style={[styles.container, style]}>
@@ -323,15 +351,19 @@ export const WhiteThemedMap: React.FC<WhiteThemedMapProps> = ({
     <View style={[styles.container, style]}>
       <WebView
         ref={webViewRef}
-        source={{ html: leafletHtml }}
+        originWhitelist={['*']}
+        source={{ html: leafletHtml, baseUrl: 'https://yamu.lk' }}
         style={styles.map}
         javaScriptEnabled={true}
         domStorageEnabled={true}
+        mixedContentMode="always"
+        userAgent="YAMU-Passenger-App/1.0 (https://yamu.lk)"
         scalesPageToFit={true}
         scrollEnabled={false}
         bounces={false}
         overScrollMode="never"
         startInLoadingState={true}
+        onLoadEnd={syncToWebView}
         renderLoading={() => (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={Colors.primary} />
@@ -341,7 +373,6 @@ export const WhiteThemedMap: React.FC<WhiteThemedMapProps> = ({
 
       {children}
 
-      {/* Recenter Location Button */}
       <TouchableOpacity
         style={styles.recenterButton}
         onPress={handleRecenter}
@@ -356,12 +387,16 @@ export const WhiteThemedMap: React.FC<WhiteThemedMapProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    width: '100%',
+    height: '100%',
     position: 'relative',
     overflow: 'hidden',
     backgroundColor: '#f8fafc',
   },
   map: {
     flex: 1,
+    width: '100%',
+    height: '100%',
     backgroundColor: '#f8fafc',
   },
   loadingContainer: {
