@@ -8,26 +8,20 @@ import { Button } from '../../components/common/Button';
 import { Input } from '../../components/common/Input';
 import { Colors } from '../../constants/colors';
 import { Typography } from '../../constants/typography';
-import { useAuth } from '../../hooks/useAuth';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'OtpVerification'>;
 
 export const OtpVerificationScreen: React.FC<Props> = ({ route, navigation }) => {
   const { phoneNumber } = route.params;
-  const { verifyOtp, isLoading } = useAuth();
-  const [otp, setOtp] = useState('1234');
+  const [otp, setOtp] = useState('');
   const [error, setError] = useState('');
 
-  const handleVerify = async () => {
+  const handleVerify = () => {
     if (otp.length < 4) {
       setError('Please enter the 4-digit code');
       return;
     }
-    setError('');
-    const success = await verifyOtp(phoneNumber, otp);
-    if (!success) {
-      setError('Invalid code. Please try again (demo code is 1234).');
-    }
+    setError('Please sign in with your registered email and password.');
   };
 
   return (
@@ -41,7 +35,7 @@ export const OtpVerificationScreen: React.FC<Props> = ({ route, navigation }) =>
 
         <Input
           label="Verification Code"
-          placeholder="1234"
+          placeholder="0000"
           value={otp}
           onChangeText={(text) => {
             setOtp(text);
@@ -55,7 +49,6 @@ export const OtpVerificationScreen: React.FC<Props> = ({ route, navigation }) =>
         <Button
           title="Verify & Continue"
           onPress={handleVerify}
-          loading={isLoading}
           style={styles.button}
         />
       </View>
