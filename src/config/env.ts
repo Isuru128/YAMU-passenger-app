@@ -10,7 +10,7 @@ export const ENV = {
 
 
   SOCKET_URL: process.env.EXPO_PUBLIC_SOCKET_URL || '',
-  MAPS_API_KEY: process.env.EXPO_PUBLIC_MAPS_KEY || '',
+  MAPS_API_KEY: process.env.EXPO_PUBLIC_MAPS_KEY || 'AIzaSyCPbCLkwQSee72-fCbDatw39MKe3hQiKQI',
   DEFAULT_COUNTRY_CODE: '+94',
   IS_PRODUCTION: process.env.NODE_ENV === 'production',
 };
