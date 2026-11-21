@@ -20,8 +20,6 @@ export interface AuthContextType {
   register: (request: RegisterRequest) => Promise<AuthResponse>;
   refreshProfile: () => Promise<AccountResponse | null>;
   updateProfile: (request: UpdateProfileRequest) => Promise<AccountResponse>;
-  loginWithPhone: (phone: string) => Promise<boolean>;
-  verifyOtp: (phone: string, otp: string) => Promise<boolean>;
   logout: () => Promise<void>;
   updateUser: (updated: Partial<UserProfile>) => void;
 }
@@ -53,38 +51,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [token, setToken] = useState<string | null>(null);
   const [user, setUser] = useState<UserProfile | null>(null);
 
-  // Restore stored session and attempt fresh GET /accounts/{id}
   useEffect(() => {
     const restoreSession = async () => {
       try {
         const savedToken = await storageService.getItem('authToken');
         const savedAccountId = await storageService.getItem('accountId');
 
-        if (savedToken) {
+        if (savedToken && savedAccountId) {
           setToken(savedToken);
           apiClient.setToken(savedToken);
-          setIsAuthenticated(true);
 
-          if (savedAccountId) {
-            try {
-              const freshAccount = await accountService.getAccountById(savedAccountId, savedToken);
-              if (freshAccount.role && freshAccount.role !== 'PASSENGER') {
-                await storageService.removeItem('authToken');
-                await storageService.removeItem('accountId');
-                setToken(null);
-                apiClient.setToken(null);
-                setIsAuthenticated(false);
-                setUser(null);
-                return;
-              }
-              setUser((prev) => mapAccountToUserProfile(freshAccount, prev));
-            } catch {
-              // Network error or backend offline; keep stored user
-            }
+          const freshAccount = await accountService.getAccountById(savedAccountId, savedToken);
+          if (freshAccount.role && freshAccount.role !== 'PASSENGER') {
+            await storageService.removeItem('authToken');
+            await storageService.removeItem('accountId');
+            setToken(null);
+            apiClient.setToken(null);
+            setIsAuthenticated(false);
+            setUser(null);
+            return;
           }
+          setUser((prev) => mapAccountToUserProfile(freshAccount, prev));
+          setIsAuthenticated(true);
         }
       } catch {
-        // storage reading error ignored
+        await storageService.removeItem('authToken');
+        await storageService.removeItem('accountId');
+        setToken(null);
+        apiClient.setToken(null);
+        setIsAuthenticated(false);
+        setUser(null);
       } finally {
         setIsLoading(false);
       }
@@ -93,9 +89,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     restoreSession();
   }, []);
 
-  /**
-   * POST /accounts/login
-   */
   const login = async (request: LoginRequest): Promise<AuthResponse> => {
     setIsLoading(true);
     try {
@@ -122,9 +115,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  /**
-   * POST /accounts/register
-   */
   const register = async (request: RegisterRequest): Promise<AuthResponse> => {
     setIsLoading(true);
     try {
@@ -149,9 +139,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  /**
-   * GET /accounts/{id}
-   */
   const refreshProfile = useCallback(async (): Promise<AccountResponse | null> => {
     const currentId = user?.id;
     if (!currentId) return null;
@@ -166,9 +153,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [user?.id, token]);
 
-  /**
-   * PUT /accounts/{id}
-   */
   const updateProfile = async (request: UpdateProfileRequest): Promise<AccountResponse> => {
     const currentId = user?.id;
     if (!currentId) throw new Error('No logged-in user to update');
@@ -185,37 +169,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const loginWithPhone = async (_phone: string): Promise<boolean> => {
-    setIsLoading(true);
-    await new Promise((resolve) => setTimeout(resolve, 800));
-    setIsLoading(false);
-    return true;
-  };
-
-  const verifyOtp = async (phone: string, otp: string): Promise<boolean> => {
-    setIsLoading(true);
-    await new Promise((resolve) => setTimeout(resolve, 800));
-    if (otp.length === 4) {
-      await storageService.setItem('authToken', 'demo_jwt_token_yamu');
-      const otpUser: UserProfile = {
-        id: `usr_${Date.now()}`,
-        fullName: 'Passenger',
-        phoneNumber: phone,
-        email: '',
-        role: 'PASSENGER',
-        status: 'ACTIVE',
-        rating: 5.0,
-        walletBalance: 0,
-      };
-      setUser(otpUser);
-      setIsAuthenticated(true);
-      setIsLoading(false);
-      return true;
-    }
-    setIsLoading(false);
-    return false;
   };
 
   const logout = async () => {
@@ -244,8 +197,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         register,
         refreshProfile,
         updateProfile,
-        loginWithPhone,
-        verifyOtp,
         logout,
         updateUser,
       }}
