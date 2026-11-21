@@ -42,20 +42,13 @@ const DEFAULT_COORDS = {
   longitude: 79.8612,
 };
 
-const MOCK_NEARBY_VEHICLES: VehiclePin[] = [
-  { id: 'tuk_1', type: 'tuk', coordinates: { latitude: 6.9262, longitude: 79.8462 }, rotation: 45 },
-  { id: 'car_1', type: 'car', coordinates: { latitude: 6.9228, longitude: 79.8425 }, rotation: 120 },
-  { id: 'bike_1', type: 'bike', coordinates: { latitude: 6.9275, longitude: 79.8432 }, rotation: 190 },
-  { id: 'tuk_2', type: 'tuk', coordinates: { latitude: 6.9212, longitude: 79.8471 }, rotation: 310 },
-];
-
 export const WhiteThemedMap: React.FC<WhiteThemedMapProps> = ({
   pickupCoordinates = DEFAULT_COORDS,
   pickupLabel = 'Pick up here',
   destinationCoordinates,
   destinationLabel = 'Drop-off',
   routeCoordinates,
-  nearbyVehicles = MOCK_NEARBY_VEHICLES,
+  nearbyVehicles = [],
   onRecenter,
   style,
   children,
