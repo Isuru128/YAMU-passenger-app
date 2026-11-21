@@ -33,7 +33,7 @@ export const WalletScreen: React.FC = () => {
         {/* Balance Card */}
         <View style={styles.balanceCard}>
           <Text style={styles.balanceSubtitle}>Available Balance</Text>
-          <Text style={styles.balanceAmount}>{formatCurrency(user?.walletBalance || 1500)}</Text>
+          <Text style={styles.balanceAmount}>{formatCurrency(user?.walletBalance || 0)}</Text>
           <Button
             title="Top Up Balance"
             variant="secondary"
@@ -115,7 +115,7 @@ export const WalletScreen: React.FC = () => {
               </View>
               <View style={styles.methodInfo}>
                 <Text style={styles.methodTitle}>Visa / Mastercard</Text>
-                <Text style={styles.methodSub}>•••• 4242</Text>
+                <Text style={styles.methodSub}>Pay securely with debit or credit card</Text>
               </View>
               {selectedPaymentMethod === PaymentMethod.CARD ? (
                 <Ionicons name="checkmark-circle" size={22} color={Colors.primary} />
