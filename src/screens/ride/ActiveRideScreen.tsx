@@ -38,7 +38,6 @@ export const ActiveRideScreen: React.FC<Props> = ({ navigation }) => {
     };
   }, [activeRide]);
 
-  // Check if trip was completed on backend
   useEffect(() => {
     if (activeRide?.status === RideStatus.COMPLETED) {
       navigation.replace('RideRating', { rideId: activeRide.id });
@@ -64,7 +63,7 @@ export const ActiveRideScreen: React.FC<Props> = ({ navigation }) => {
     if (activeRide.driver?.phone) {
       Linking.openURL(`tel:${activeRide.driver.phone}`);
     } else {
-      Alert.alert('Contact Driver', 'Driver contact is currently being dispatched.');
+      Alert.alert('Contact Driver', 'Driver contact will be available once accepted.');
     }
   };
 
@@ -78,16 +77,16 @@ export const ActiveRideScreen: React.FC<Props> = ({ navigation }) => {
           text: 'Yes, Cancel',
           style: 'destructive',
           onPress: async () => {
-            await cancelRide('Cancelled by passenger');
-            navigation.navigate('MainTabs');
+            try {
+              await cancelRide('Cancelled by passenger');
+              navigation.navigate('MainTabs');
+            } catch (err: any) {
+              Alert.alert('Cannot Cancel Ride', err?.message || 'Could not cancel ride.');
+            }
           },
         },
       ]
     );
-  };
-
-  const handleSimulateComplete = () => {
-    navigation.replace('RideRating', { rideId: activeRide.id });
   };
 
   const getStatusDisplay = () => {
@@ -101,13 +100,13 @@ export const ActiveRideScreen: React.FC<Props> = ({ navigation }) => {
       case RideStatus.ASSIGNED:
         return {
           title: 'Driver Assigned',
-          sub: 'Driver is preparing to head to your pickup location',
+          sub: 'Waiting for driver to accept your trip request',
           color: Colors.accent,
         };
       case RideStatus.ACCEPTED:
         return {
           title: 'Driver on the Way',
-          sub: `Arriving in ~${routeInfo?.durationMinutes || 3} mins`,
+          sub: `Arriving in ~${routeInfo?.durationMinutes || 5} mins`,
           color: Colors.primary,
         };
       case RideStatus.IN_PROGRESS:
@@ -133,11 +132,25 @@ export const ActiveRideScreen: React.FC<Props> = ({ navigation }) => {
 
   const statusDisplay = getStatusDisplay();
   const isSearching = activeRide.status === RideStatus.REQUESTED;
+  const canCancel =
+    activeRide.status === RideStatus.REQUESTED ||
+    activeRide.status === RideStatus.ASSIGNED ||
+    activeRide.status === RideStatus.ACCEPTED;
+
+  const driverVehiclePins = activeRide.driver?.currentLocation
+    ? [
+        {
+          id: activeRide.driver.id,
+          type: (activeRide.vehicleType?.toLowerCase() || 'car') as any,
+          coordinates: activeRide.driver.currentLocation,
+          rotation: 45,
+        },
+      ]
+    : [];
 
   return (
     <SafeScreen>
       <View style={styles.container}>
-        {/* OpenStreetMap Map View Area */}
         <View style={styles.mapArea}>
           <WhiteThemedMap
             pickupCoordinates={activeRide.pickup.coordinates}
@@ -145,14 +158,7 @@ export const ActiveRideScreen: React.FC<Props> = ({ navigation }) => {
             destinationCoordinates={activeRide.destination.coordinates}
             destinationLabel={activeRide.destination.name}
             routeCoordinates={routeInfo?.coordinates}
-            nearbyVehicles={[
-              {
-                id: 'driver_current',
-                type: (activeRide.vehicleType?.toLowerCase() || 'car') as any,
-                coordinates: activeRide.pickup.coordinates,
-                rotation: 45,
-              },
-            ]}
+            nearbyVehicles={driverVehiclePins}
             style={StyleSheet.absoluteFill}
           />
 
@@ -166,9 +172,8 @@ export const ActiveRideScreen: React.FC<Props> = ({ navigation }) => {
           </View>
         </View>
 
-        {/* Bottom Details Sheet */}
         <View style={styles.bottomSheet}>
-          {isSearching ? (
+          {isSearching || !activeRide.driver ? (
             <View style={styles.searchingCard}>
               <View style={styles.searchingRow}>
                 <ActivityIndicator size="large" color={Colors.primary} />
@@ -179,16 +184,13 @@ export const ActiveRideScreen: React.FC<Props> = ({ navigation }) => {
               </View>
             </View>
           ) : (
-            activeRide.driver && (
-              <DriverInfoCard
-                driver={activeRide.driver}
-                onCallDriver={handleCall}
-                onMessageDriver={handleCall}
-              />
-            )
+            <DriverInfoCard
+              driver={activeRide.driver}
+              onCallDriver={handleCall}
+              onMessageDriver={handleCall}
+            />
           )}
 
-          {/* Ride Route Preview */}
           <View style={styles.routeCard}>
             <View style={styles.locationRow}>
               <View style={styles.pickupDot} />
@@ -208,21 +210,14 @@ export const ActiveRideScreen: React.FC<Props> = ({ navigation }) => {
             </View>
           </View>
 
-          {/* Actions */}
-          <View style={styles.actionButtons}>
-            <Button
-              title="Complete Trip & Pay"
-              onPress={handleSimulateComplete}
-              variant="primary"
-              style={styles.simButton}
-            />
+          {canCancel && (
             <Button
               title="Cancel Ride"
               variant="outline"
               onPress={handleCancel}
               style={styles.cancelButton}
             />
-          </View>
+          )}
         </View>
       </View>
     </SafeScreen>
@@ -356,14 +351,7 @@ const styles = StyleSheet.create({
     ...Typography.bodyBold,
     color: Colors.primary,
   },
-  actionButtons: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  simButton: {
-    flex: 2,
-  },
   cancelButton: {
-    flex: 1,
+    width: '100%',
   },
 });
